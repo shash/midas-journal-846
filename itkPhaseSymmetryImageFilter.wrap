@@ -1,0 +1,8 @@
+itk_wrap_class("itk::PhaseSymmetryImageFilter" POINTER)
+	itk_wrap_image_filter_types(F F)
+    #foreach(d ${ITK_WRAP_DIMS})
+     #if(WRAP_float)
+      MESSAGE("here")
+    #endif(WRAP_float)
+  #endforeach(d)
+itk_end_wrap_class()
