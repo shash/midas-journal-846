@@ -78,10 +78,6 @@ namespace itk
 	template <class TInputImage, class TOutputImage>
 	void PhaseSymmetryImageFilter<TInputImage,TOutputImage>::Initialize( void )
 	{
-
-		//typedef itk::ImageFileWriter< FloatImageType> WriterType;
-		//WriterType::Pointer writer= WriterType::New();
-
 		typename TInputImage::SizeType  inputSize;
 		typename TInputImage::IndexType inputIndex;
 		typename Superclass::OutputImagePointer output = this->GetOutput();
@@ -199,8 +195,7 @@ namespace itk
 		double epsilon = 0.0001;
 
 		ComplexImageType::Pointer finput = ComplexImageType::New();
-		ComplexImageType::Pointer bpinput = ComplexImageType::New();
-
+		ComplexImageType1::Pointer bpinput = ComplexImageType1::New();
 
 		m_FFTFilter->SetInput(input);
 		m_FFTFilter->Update();
@@ -240,13 +235,13 @@ namespace itk
 		m_C2AFilter->ReleaseDataFlagOn();
 		m_MultiplyImageFilter->ReleaseDataFlagOn();
 		m_MP2CFilter->ReleaseDataFlagOn();
-		m_IFFTFilter->ReleaseDataFlagOn();
 		m_C2RFilter->ReleaseDataFlagOn();
 		m_C2IFilter->ReleaseDataFlagOn();
 		m_MaxImageFilter->ReleaseDataFlagOn();
 		m_NegateFilter->ReleaseDataFlagOn();
 		m_AbsImageFilter->ReleaseDataFlagOn();
 		m_AbsImageFilter2->ReleaseDataFlagOn();
+		m_IFFTFilter->ReleaseDataFlagOn();
 
 		for( int o=0; o < m_Orientations.rows(); o++)
 		{
@@ -278,12 +273,12 @@ namespace itk
 				
 				m_MP2CFilter->SetInput1(m_MultiplyImageFilter->GetOutput());
 				m_MP2CFilter->SetInput2(m_C2AFilter->GetOutput());
-				
+				m_MP2CFilter->Update();
+ComplexImageType1::Pointer  comp = m_MP2CFilter->GetOutput();
 				m_IFFTFilter->SetInput(m_MP2CFilter->GetOutput());
 				m_IFFTFilter->Update();
 				bpinput=m_IFFTFilter->GetOutput();
 				bpinput->DisconnectPipeline();
-
 				//Get mag, real and imag of the band passed images
 				m_C2MFilter->SetInput(bpinput);
 				m_C2RFilter->SetInput(bpinput);
@@ -382,6 +377,7 @@ namespace itk
 
 
 		itkDebugMacro("GenerateOutputInformation End");
+
 	}
 
 

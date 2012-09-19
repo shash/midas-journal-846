@@ -26,17 +26,14 @@ See Peter Kovesi's site for details on the filter
 #include "itkRealAndImaginaryToComplexImageFilter.h"
 #include "itkMagnitudeAndPhaseToComplexImageFilter.h"
 #include "itkImageAdaptor.h"
-#include "itkVnlFFTRealToComplexConjugateImageFilter.h"
-#include "itkVnlFFTComplexConjugateToRealImageFilter.h"
-#include "itkFFTWRealToComplexConjugateImageFilter.h"
-#include "itkFFTWComplexConjugateToRealImageFilter.h"
-#include "itkFFTWComplexToComplexImageFilter.h"
-#include "itkFFTComplexToComplexImageFilter.h"
-#include "itkComplexToRealImageFilter.h"
-#include "itkComplexToPhaseImageFilter.h"
-#include "itkComplexToImaginaryImageFilter.h"
-#include "itkComplexToImaginaryImageFilter.h"
-#include "itkComplexToModulusImageFilter.h"
+#include "itkVnlForwardFFTImageFilter.h"
+#include "itkVnlInverseFFTImageFilter.h"
+#include <itkFFTComplexToComplexImageFilter.h>
+#include <itkComplexToRealImageFilter.h>
+#include <itkComplexToPhaseImageFilter.h>
+#include <itkComplexToImaginaryImageFilter.h>
+#include <itkComplexToImaginaryImageFilter.h>
+#include <itkComplexToModulusImageFilter.h>
 #include "itkRealAndImaginaryToComplexImageFilter.h"
 #include "itkAcosImageFilter.h"
 #include "itkShiftScaleImageFilter.h"
@@ -75,6 +72,7 @@ namespace itk
 		typedef typename     OutputImageType::Pointer     OutputImagePointer;
 		typedef typename     OutputImageType::RegionType  OutputImageRegionType;
 		typedef typename     OutputImageType::PixelType   OutputImagePixelType;
+		typedef itk::Image< float, InputImageType::ImageDimension >  FloatImageType;
 
 		typedef OutputImagePixelType ComplexPixelComponentType;
 		typedef OutputImagePixelType ImagePixelType;
@@ -84,7 +82,7 @@ namespace itk
 		typedef FixedArray<double,TInputImage::ImageDimension-1> DimMinusOneDoubleArrayType;
 		typedef Array2D<double> MatrixType;
 		
-		typedef itk::Image<ImagePixelType,TInputImage::ImageDimension> FloatImageType;
+		//typedef itk::Image<ImagePixelType,TInputImage::ImageDimension> FloatImageType;
 
 		typedef std::vector< typename FloatImageType::Pointer > FloatImageStack;
 		typedef std::vector<FloatImageStack> FloatImageBank;
@@ -100,13 +98,13 @@ namespace itk
 		void Initialize();
 		/** Input and output images must be the same dimension, or the output's
 		dimension must be one less than that of the input. */
-#ifdef ITK_USE_CONCEPT_CHECKING
+//#ifdef ITK_USE_CONCEPT_CHECKING
 		/** Begin concept checking */
 		itkConceptMacro(ImageDimensionCheck,
 			(Concept::SameDimension<itkGetStaticConstMacro(InputImageDimension),
 			itkGetStaticConstMacro(OutputImageDimension)>));
 		/** End concept checking */
-#endif
+//#endif
 
 
 	protected:
@@ -122,22 +120,15 @@ namespace itk
 
 		void GenerateData(void);
 
-
-		//typedef itk::VnlFFTRealToComplexConjugateImageFilter <ImagePixelType, TInputImage::ImageDimension>  ForwardFFTFilterType;
-		//typedef itk::VnlFFTComplexConjugateToRealImageFilter <ImagePixelType, TInputImage::ImageDimension>  InverseFFTFilterType;
-		//typedef itk::FFTWRealToComplexConjugateImageFilter <ImagePixelType, TInputImage::ImageDimension>  ForwardFFTFilterType;
-		//typedef itk::FFTWComplexConjugateToRealImageFilter <ImagePixelType, TInputImage::ImageDimension>  InverseFFTFilterType;
-
 		static const int   FFT_FORWARD = -1;
 		static const int   FFT_BACKWARD = 1;
 
-		typedef itk::VnlFFTRealToComplexConjugateImageFilter <ImagePixelType,TInputImage::ImageDimension> FFTFilterType;
-		typedef itk::FFTComplexToComplexImageFilter <ImagePixelType,TInputImage::ImageDimension> IFFTFilterType;
-	
+		typedef itk::VnlForwardFFTImageFilter <FloatImageType> FFTFilterType;
 		typedef typename FFTFilterType::OutputImageType ComplexImageType;
+				typedef itk::MagnitudeAndPhaseToComplexImageFilter<FloatImageType> MagnitudeAndPhaseToComplexFilterType;
+		typedef typename MagnitudeAndPhaseToComplexFilterType::OutputImageType ComplexImageType1;
 
-		typedef std::vector< typename FloatImageType::Pointer > FloatImageStack;
-		typedef std::vector<FloatImageStack> FloatImageBank;
+		typedef itk::FFTComplexToComplexImageFilter <ComplexImageType1> IFFTFilterType;
 
 		typedef itk::MultiplyImageFilter <FloatImageType,FloatImageType> MultiplyImageFilterType;
 		typedef itk::MultiplyImageFilter <ComplexImageType,ComplexImageType> ComplexMultiplyImageFilterType;
@@ -156,13 +147,13 @@ namespace itk
 		typedef itk::SteerableFilterFreqImageSource <FloatImageType> SteerableFiltersFreqImageSourceType;
 		typedef itk::ButterworthFilterFreqImageSource <FloatImageType> ButterworthKernelFreqImageSourceType;
 		typedef itk::ShiftScaleImageFilter<FloatImageType,FloatImageType> ShiftScaleImageFilterType;
-		typedef itk::AcosImageFilter<FloatImageType,FloatImageType> AcosImageFilterType;;
-		typedef itk::ComplexToRealImageFilter<ComplexImageType , FloatImageType> ComplexToRealFilterType;
-		typedef itk::ComplexToImaginaryImageFilter<ComplexImageType , FloatImageType> ComplexToImaginaryFilterType;
-		typedef itk::ComplexToModulusImageFilter<ComplexImageType , FloatImageType> ComplexToModulusFilterType;
-		typedef itk::ComplexToPhaseImageFilter<ComplexImageType , FloatImageType> ComplexToPhaseFilterType;
+		typedef itk::ComplexToRealImageFilter<ComplexImageType, FloatImageType> ComplexToRealFilterType;
+		typedef itk::ComplexToImaginaryImageFilter<ComplexImageType, FloatImageType> ComplexToImaginaryFilterType;
+		typedef itk::ComplexToModulusImageFilter<ComplexImageType, FloatImageType> ComplexToModulusFilterType;
+
+		typedef itk::ComplexToPhaseImageFilter<ComplexImageType, FloatImageType> ComplexToPhaseFilterType;
 		typedef itk::RealAndImaginaryToComplexImageFilter<ImagePixelType, ImagePixelType,ImagePixelType,TInputImage::ImageDimension> RealAndImaginaryToComplexFilterType;
-		typedef itk::MagnitudeAndPhaseToComplexImageFilter<ImagePixelType, ImagePixelType,ImagePixelType,TInputImage::ImageDimension> MagnitudeAndPhaseToComplexFilterType;
+
 		typedef itk::FFTShiftImageFilter<ComplexImageType,ComplexImageType> ComplexFFTShiftImageFilterType;
 		typedef itk::FFTShiftImageFilter<FloatImageType,FloatImageType> DoubleFFTShiftImageFilterType;
 		typedef itk::AbsImageFilter<FloatImageType,FloatImageType> AbsImageFilterType;

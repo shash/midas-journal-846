@@ -60,7 +60,7 @@ public:
    * cosines of the image. */
   typedef typename TOutputImage::DirectionType DirectionType;
   
-  typedef std::vector<std::vector<double>> RangeType;
+  typedef std::vector<std::vector<double> > RangeType;
 
   /** Dimensionality of the output image */
   itkStaticConstMacro(NDimensions, unsigned int, TOutputImage::ImageDimension);
@@ -126,8 +126,9 @@ protected:
   ButterworthFilterFreqImageSource();
   ~ButterworthFilterFreqImageSource();
   void PrintSelf(std::ostream& os, Indent indent) const;
-  void ThreadedGenerateData(const OutputImageRegionType& outputRegionForThread,int tid);
-  virtual void GenerateOutputInformation();
+  void ThreadedGenerateData(const OutputImageRegionType & outputRegionForThread,
+                       ThreadIdType threadId);
+	virtual void GenerateOutputInformation();
 
 private:
   ButterworthFilterFreqImageSource(const ButterworthFilterFreqImageSource&); //purposely not implemented

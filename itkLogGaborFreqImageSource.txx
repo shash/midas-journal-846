@@ -62,7 +62,8 @@ namespace itk
 	}
 
 	template <typename TOutputImage>
-	void LogGaborFreqImageSource<TOutputImage>::ThreadedGenerateData(const OutputImageRegionType& outputRegionForThread,int tid)
+	void LogGaborFreqImageSource<TOutputImage>::ThreadedGenerateData(const OutputImageRegionType & outputRegionForThread,
+                       ThreadIdType threadId)
 	{
 		//The a pointer to the output image
 		typename TOutputImage::Pointer outputPtr = this->GetOutput();
