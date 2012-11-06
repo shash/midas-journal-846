@@ -12,29 +12,9 @@ namespace itk
 	PhaseSymmetryImageFilter<TInputImage,TOutputImage>::PhaseSymmetryImageFilter()
 	{
 		m_MultiplyImageFilter = MultiplyImageFilterType::New();
-		m_DivideImageFilter = DivideImageFilterType::New();
-		m_AddImageFilter = AddImageFilterType::New();
-		m_AddImageFilter2 = AddImageFilterType::New();
-		m_MaxImageFilter = MaxImageFilterType::New();
-		m_SSFilter = ShiftScaleImageFilterType::New();
-		m_NegateFilter = ShiftScaleImageFilterType::New();
-		m_NegateFilter2 = ShiftScaleImageFilterType::New();
-		m_C2RFilter = ComplexToRealFilterType::New();
-		m_C2IFilter = ComplexToImaginaryFilterType::New();
-		m_C2MFilter = ComplexToModulusFilterType::New();
-		m_C2AFilter = ComplexToPhaseFilterType::New();
-		m_AbsImageFilter = AbsImageFilterType::New();
-		m_AbsImageFilter2 = AbsImageFilterType::New();
-		m_MP2CFilter = MagnitudeAndPhaseToComplexFilterType::New();
 
 		m_FFTFilter  = FFTFilterType::New();
 		m_IFFTFilter = IFFTFilterType::New();
-
-		m_NegateFilter->SetScale(-1.0);
-		m_NegateFilter->SetShift(0.0);
-
-		m_NegateFilter2->SetScale(-1.0);
-		m_NegateFilter2->SetShift(0.0);
 
 		//Create 2 initialze wavelengths
 		m_Wavelengths.SetSize(2,TInputImage::ImageDimension);
@@ -85,11 +65,6 @@ namespace itk
 		inputSize = input->GetLargestPossibleRegion().GetSize();
 		int ndims = int(TInputImage::ImageDimension);
 
-		m_SSFilter->SetInput(input);
-		m_SSFilter->SetScale(0.0);
-		m_SSFilter->SetShift(0.0);
-
-
 		typename LogGaborFreqImageSourceType::Pointer LogGaborKernel =  LogGaborFreqImageSourceType::New();
 		typename SteerableFiltersFreqImageSourceType::Pointer SteerableFilterKernel =  SteerableFiltersFreqImageSourceType::New();
 		typename ButterworthKernelFreqImageSourceType::Pointer ButterworthFilterKernel =  ButterworthKernelFreqImageSourceType::New();
@@ -122,37 +97,6 @@ namespace itk
 		FloatImageStack tempStack;
 		FloatImageStack lgStack;
 		FloatImageStack sfStack;
-
-		////Create log gabor kernels
-		//for( unsigned int w=0; w < m_Wavelengths.rows(); w++)
-		//{
-		//	for(int i=0; i < ndims;i++)
-		//	{	
-		//		wv[i]=m_Wavelengths.get(w,i);
-		//	}
-		//	LogGaborKernel->SetWavelengths(wv);
-		//	LogGaborKernel->SetSigma(m_Sigma);
-		//	m_MultiplyImageFilter->SetInput1(LogGaborKernel->GetOutput());
-		//	m_MultiplyImageFilter->SetInput2(ButterworthFilterKernel->GetOutput());
-		//	m_MultiplyImageFilter->Update();
-		//	lgStack.push_back(m_MultiplyImageFilter->GetOutput());
-		//	lgStack[w]->DisconnectPipeline();
-		//}
-
-		////Create directionality kernels
-		//for( unsigned int o=0; o < m_Orientations.rows(); o++)
-		//{
-		//	for( int d=0; d<ndims; d++)
-		//	{
-		//		orientation[d] = m_Orientations.get(o,d);
-		//		
-		//	}
-		//	SteerableFilterKernel->SetOrientation(orientation);
-		//	SteerableFilterKernel->SetAngularBandwidth(m_AngleBandwidth);
- 	//		SteerableFilterKernel->Update();
-		//	sfStack.push_back(SteerableFilterKernel->GetOutput());
-		//	sfStack[o]->DisconnectPipeline();
-		//}
 
 		//Create filter bank by multiplying log gabor filters with directional filters
 		DoubleFFTShiftImageFilterType::Pointer FFTShiftFilter = DoubleFFTShiftImageFilterType::New();
@@ -232,7 +176,7 @@ namespace itk
 		}
 
 
-		typename FloatImageType::Pointer totalAmplitude = FloatImageType::New();
+		typename FloatImageType::Pointer totalAmplitude;
 		typename FloatImageType::Pointer totalEnergy = FloatImageType::New();
 
 		//Matlab style initalization, because these images accumulate over each loop
@@ -244,10 +188,7 @@ namespace itk
 		output->Allocate();
 		output->FillBuffer(0);
 
-		totalAmplitude->CopyInformation(input);
-		totalAmplitude->SetRegions(inputRegion);
-		totalAmplitude->Allocate();
-		totalAmplitude->FillBuffer(0);
+		totalAmplitude = output;
 
 		totalEnergy->CopyInformation(input);
 		totalEnergy->SetRegions(inputRegion);
@@ -260,22 +201,10 @@ namespace itk
 		multiplied->Allocate();
 		multiplied->FillBuffer(0);
 
-		m_SSFilter->ReleaseDataFlagOn();
-		m_C2MFilter->ReleaseDataFlagOn();
-		m_C2AFilter->ReleaseDataFlagOn();
-		m_MultiplyImageFilter->ReleaseDataFlagOn();
-		m_MP2CFilter->ReleaseDataFlagOn();
-		m_C2RFilter->ReleaseDataFlagOn();
-		m_C2IFilter->ReleaseDataFlagOn();
-		m_MaxImageFilter->ReleaseDataFlagOn();
-		m_NegateFilter->ReleaseDataFlagOn();
-		m_AbsImageFilter->ReleaseDataFlagOn();
-		m_AbsImageFilter2->ReleaseDataFlagOn();
 		m_IFFTFilter->ReleaseDataFlagOn();
 
 		for( int o=0; o < m_Orientations.rows(); o++)
 		{
-
 			for( int w=0; w < m_Wavelengths.rows(); w++)
 			{
 				//Multiply filters by the input image in fourier domain
@@ -286,19 +215,7 @@ namespace itk
 				{
 					std::complex<float> filtered = inputIterator.Value() * filterBankIterator.Value();
 					filtered /= pxlCount;
-					//float real = inputIterator.Value().real();
-					//float imag = inputIterator.Value().imag();
-					//float magnitude = sqrt(real * real + imag * imag) / pxlCount;
-					//float phase = atan2(imag, real);
-					//float multipliedMagnitude = magnitude * filterBankIterator.Value();
-					//real = multipliedMagnitude * cos(phase);
-					//imag = multipliedMagnitude * sin(phase);
-					//std::complex<float> filtered2(real, imag);
-					//if (filtered != filtered2)
-					//{
-					//	std::complex<float> diff = filtered - filtered2;
-					//	std::cout << diff.real() << " " << diff.imag() << std::endl;
-					//}
+
 					multipliedImageIterator.Value() = filtered;
 					++inputIterator;
 					++filterBankIterator;
@@ -308,7 +225,6 @@ namespace itk
 				m_IFFTFilter->SetInput(multiplied);
 				m_IFFTFilter->Update();
 				bpinput=m_IFFTFilter->GetOutput();
-				bpinput->DisconnectPipeline();
 				//Get mag, real and imag of the band passed images
 
 				FloatImageIteratorType amplitudeImageIterator(totalAmplitude, inputRegion);
@@ -369,14 +285,12 @@ namespace itk
 
 		FloatImageIteratorType outputIterator(output, inputRegion);
 		FloatImageIteratorType energyIterator(totalEnergy, inputRegion);
-		FloatImageIteratorType amplitudeIterator(totalAmplitude, inputRegion);
 
 		while (!outputIterator.IsAtEnd())
 		{
-			outputIterator.Value() = std::max(0.f, energyIterator.Value()) / amplitudeIterator.Value();
+			outputIterator.Value() = std::max(0.f, energyIterator.Value()) / outputIterator.Value();
 			++outputIterator;
 			++energyIterator;
-			++amplitudeIterator;
 		}
 		itkDebugMacro("GenerateOutputInformation End");
 	}

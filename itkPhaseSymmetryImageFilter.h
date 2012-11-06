@@ -28,6 +28,8 @@ See Peter Kovesi's site for details on the filter
 #include "itkImageAdaptor.h"
 #include "itkVnlForwardFFTImageFilter.h"
 #include "itkVnlInverseFFTImageFilter.h"
+#include "itkFFTWForwardFFTImageFilter.h"
+#include "itkFFTWInverseFFTImageFilter.h"
 #include <itkFFTComplexToComplexImageFilter.h>
 #include <itkComplexToRealImageFilter.h>
 #include <itkComplexToPhaseImageFilter.h>
@@ -125,7 +127,7 @@ namespace itk
 		static const int   FFT_FORWARD = -1;
 		static const int   FFT_BACKWARD = 1;
 
-		typedef itk::VnlForwardFFTImageFilter <FloatImageType> FFTFilterType;
+		typedef itk::FFTWForwardFFTImageFilter <FloatImageType> FFTFilterType;
 		typedef typename FFTFilterType::OutputImageType ComplexImageType;
 		typedef itk::MagnitudeAndPhaseToComplexImageFilter<FloatImageType> MagnitudeAndPhaseToComplexFilterType;
 
@@ -172,24 +174,10 @@ namespace itk
 		int m_Polarity;
 
 		typename MultiplyImageFilterType::Pointer m_MultiplyImageFilter;
-		typename DivideImageFilterType::Pointer m_DivideImageFilter;
-		typename AddImageFilterType::Pointer m_AddImageFilter;
-		typename AddImageFilterType::Pointer m_AddImageFilter2;
-		typename MaxImageFilterType::Pointer m_MaxImageFilter;
 		
 		typename FFTFilterType::Pointer m_FFTFilter;
 		typename IFFTFilterType::Pointer m_IFFTFilter;
 
-		typename ShiftScaleImageFilterType::Pointer m_SSFilter;
-		typename ShiftScaleImageFilterType::Pointer m_NegateFilter;
-		typename ShiftScaleImageFilterType::Pointer m_NegateFilter2;
-		typename ComplexToRealFilterType::Pointer m_C2RFilter;
-		typename ComplexToImaginaryFilterType::Pointer m_C2IFilter;
-		typename ComplexToModulusFilterType::Pointer m_C2MFilter;
-		typename ComplexToPhaseFilterType::Pointer m_C2AFilter;
-		typename AbsImageFilterType::Pointer m_AbsImageFilter;
-		typename AbsImageFilterType::Pointer m_AbsImageFilter2;
-		typename MagnitudeAndPhaseToComplexFilterType::Pointer m_MP2CFilter;
 
 		typename FloatImageType::Pointer m_PhaseSymmetry;
 
