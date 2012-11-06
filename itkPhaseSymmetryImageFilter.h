@@ -84,6 +84,8 @@ namespace itk
 		
 		//typedef itk::Image<ImagePixelType,TInputImage::ImageDimension> FloatImageType;
 
+		typedef itk::ImageRegionIterator<FloatImageType> FloatImageIteratorType;
+
 		typedef std::vector< typename FloatImageType::Pointer > FloatImageStack;
 		typedef std::vector<FloatImageStack> FloatImageBank;
 
@@ -125,10 +127,11 @@ namespace itk
 
 		typedef itk::VnlForwardFFTImageFilter <FloatImageType> FFTFilterType;
 		typedef typename FFTFilterType::OutputImageType ComplexImageType;
-				typedef itk::MagnitudeAndPhaseToComplexImageFilter<FloatImageType> MagnitudeAndPhaseToComplexFilterType;
-		typedef typename MagnitudeAndPhaseToComplexFilterType::OutputImageType ComplexImageType1;
+		typedef itk::MagnitudeAndPhaseToComplexImageFilter<FloatImageType> MagnitudeAndPhaseToComplexFilterType;
 
-		typedef itk::FFTComplexToComplexImageFilter <ComplexImageType1> IFFTFilterType;
+		typedef itk::ImageRegionIterator<ComplexImageType> ComplexImageIteratorType;
+
+		typedef itk::FFTComplexToComplexImageFilter <ComplexImageType> IFFTFilterType;
 
 		typedef itk::MultiplyImageFilter <FloatImageType,FloatImageType> MultiplyImageFilterType;
 		typedef itk::MultiplyImageFilter <ComplexImageType,ComplexImageType> ComplexMultiplyImageFilterType;
@@ -140,8 +143,6 @@ namespace itk
 		typedef itk::ExpImageFilter <FloatImageType,FloatImageType> ExpImageFilterType;
 		typedef itk::BoundedReciprocalImageFilter <FloatImageType,FloatImageType> BoundedReciprocalImageFilterType;
 		typedef itk::Atan2ImageFilter <FloatImageType,FloatImageType,FloatImageType> Atan2ImageFilterType;
-		typedef itk::AcosImageFilter <FloatImageType,FloatImageType> AcosImageFilterType;
-
 		                                                      
 		typedef itk::LogGaborFreqImageSource <FloatImageType> LogGaborFreqImageSourceType;
 		typedef itk::SteerableFilterFreqImageSource <FloatImageType> SteerableFiltersFreqImageSourceType;
@@ -175,8 +176,6 @@ namespace itk
 		typename AddImageFilterType::Pointer m_AddImageFilter;
 		typename AddImageFilterType::Pointer m_AddImageFilter2;
 		typename MaxImageFilterType::Pointer m_MaxImageFilter;
-		typename Atan2ImageFilterType::Pointer m_AtanImageFilter;
-		typename AcosImageFilterType::Pointer m_AcosImageFilter;
 		
 		typename FFTFilterType::Pointer m_FFTFilter;
 		typename IFFTFilterType::Pointer m_IFFTFilter;

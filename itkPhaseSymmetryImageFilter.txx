@@ -16,11 +16,9 @@ namespace itk
 		m_AddImageFilter = AddImageFilterType::New();
 		m_AddImageFilter2 = AddImageFilterType::New();
 		m_MaxImageFilter = MaxImageFilterType::New();
-		m_AtanImageFilter = Atan2ImageFilterType::New();
 		m_SSFilter = ShiftScaleImageFilterType::New();
 		m_NegateFilter = ShiftScaleImageFilterType::New();
 		m_NegateFilter2 = ShiftScaleImageFilterType::New();
-		m_AcosImageFilter = AcosImageFilterType::New();
 		m_C2RFilter = ComplexToRealFilterType::New();
 		m_C2IFilter = ComplexToImaginaryFilterType::New();
 		m_C2MFilter = ComplexToModulusFilterType::New();
@@ -100,11 +98,13 @@ namespace itk
 		LogGaborKernel->SetOrigin(this->GetInput()->GetOrigin());
 		LogGaborKernel->SetSpacing(this->GetInput()->GetSpacing());
 		LogGaborKernel->SetSize(inputSize);
+		LogGaborKernel->ReleaseDataFlagOn();
 
 		//Initialize directionality kernels
 		SteerableFilterKernel->SetOrigin(this->GetInput()->GetOrigin());
 		SteerableFilterKernel->SetSpacing(this->GetInput()->GetSpacing());
 		SteerableFilterKernel->SetSize(inputSize);
+		SteerableFilterKernel->ReleaseDataFlagOn();
 
 		//Initialize low pass filter kernel
 		ButterworthFilterKernel->SetOrigin(this->GetInput()->GetOrigin());
@@ -112,18 +112,51 @@ namespace itk
 		ButterworthFilterKernel->SetSize(inputSize);
 		ButterworthFilterKernel->SetCutoff(0.4);
 		ButterworthFilterKernel->SetOrder(10.0);
+		SteerableFilterKernel->ReleaseDataFlagOn();
 
 		ArrayType wv;
 		ArrayType sig;
 		ArrayType orientation;
-		double angleBandwidth;
 
 
 		FloatImageStack tempStack;
 		FloatImageStack lgStack;
 		FloatImageStack sfStack;
 
-		//Create log gabor kernels
+		////Create log gabor kernels
+		//for( unsigned int w=0; w < m_Wavelengths.rows(); w++)
+		//{
+		//	for(int i=0; i < ndims;i++)
+		//	{	
+		//		wv[i]=m_Wavelengths.get(w,i);
+		//	}
+		//	LogGaborKernel->SetWavelengths(wv);
+		//	LogGaborKernel->SetSigma(m_Sigma);
+		//	m_MultiplyImageFilter->SetInput1(LogGaborKernel->GetOutput());
+		//	m_MultiplyImageFilter->SetInput2(ButterworthFilterKernel->GetOutput());
+		//	m_MultiplyImageFilter->Update();
+		//	lgStack.push_back(m_MultiplyImageFilter->GetOutput());
+		//	lgStack[w]->DisconnectPipeline();
+		//}
+
+		////Create directionality kernels
+		//for( unsigned int o=0; o < m_Orientations.rows(); o++)
+		//{
+		//	for( int d=0; d<ndims; d++)
+		//	{
+		//		orientation[d] = m_Orientations.get(o,d);
+		//		
+		//	}
+		//	SteerableFilterKernel->SetOrientation(orientation);
+		//	SteerableFilterKernel->SetAngularBandwidth(m_AngleBandwidth);
+ 	//		SteerableFilterKernel->Update();
+		//	sfStack.push_back(SteerableFilterKernel->GetOutput());
+		//	sfStack[o]->DisconnectPipeline();
+		//}
+
+		//Create filter bank by multiplying log gabor filters with directional filters
+		DoubleFFTShiftImageFilterType::Pointer FFTShiftFilter = DoubleFFTShiftImageFilterType::New();
+
 		for( unsigned int w=0; w < m_Wavelengths.rows(); w++)
 		{
 			for(int i=0; i < ndims;i++)
@@ -135,35 +168,22 @@ namespace itk
 			m_MultiplyImageFilter->SetInput1(LogGaborKernel->GetOutput());
 			m_MultiplyImageFilter->SetInput2(ButterworthFilterKernel->GetOutput());
 			m_MultiplyImageFilter->Update();
-			lgStack.push_back(m_MultiplyImageFilter->GetOutput());
-			lgStack[w]->DisconnectPipeline();
-		}
-
-		//Create directionality kernels
-		for( unsigned int o=0; o < m_Orientations.rows(); o++)
-		{
-			for( int d=0; d<ndims; d++)
-			{
-				orientation[d] = m_Orientations.get(o,d);
-				
-			}
-			SteerableFilterKernel->SetOrientation(orientation);
-			SteerableFilterKernel->SetAngularBandwidth(m_AngleBandwidth);
- 			SteerableFilterKernel->Update();
-			sfStack.push_back(SteerableFilterKernel->GetOutput());
-			sfStack[o]->DisconnectPipeline();
-		}
-
-		//Create filter bank by multiplying log gabor filters with directional filters
-		DoubleFFTShiftImageFilterType::Pointer FFTShiftFilter = DoubleFFTShiftImageFilterType::New();
-
-		for( unsigned int w=0; w < m_Wavelengths.rows(); w++)
-		{
+			FloatImageType::Pointer gabor = m_MultiplyImageFilter->GetOutput();
+			gabor->DisconnectPipeline();
 			tempStack.clear();
 			for( int o=0; o<m_Orientations.rows(); o++)
 			{
-				m_MultiplyImageFilter->SetInput1(lgStack[w]);
-				m_MultiplyImageFilter->SetInput2(sfStack[o]);
+				for( int d=0; d<ndims; d++)
+				{
+					orientation[d] = m_Orientations.get(o,d);
+
+				}
+				SteerableFilterKernel->SetOrientation(orientation);
+				SteerableFilterKernel->SetAngularBandwidth(m_AngleBandwidth);
+				SteerableFilterKernel->Update();
+				FloatImageType::Pointer steerable = SteerableFilterKernel->GetOutput();
+				m_MultiplyImageFilter->SetInput1(gabor);
+				m_MultiplyImageFilter->SetInput2(steerable);
 				FFTShiftFilter->SetInput(m_MultiplyImageFilter->GetOutput());
 				FFTShiftFilter->Update();
 				tempStack.push_back(FFTShiftFilter->GetOutput());
@@ -171,7 +191,7 @@ namespace itk
 			}
 			m_FilterBank.push_back(tempStack);
 		}
-		
+		m_MultiplyImageFilter = MultiplyImageFilterType::New();
 	}
 
 
@@ -194,8 +214,9 @@ namespace itk
 		double initialPoint=0;
 		double epsilon = 0.0001;
 
-		ComplexImageType::Pointer finput = ComplexImageType::New();
-		ComplexImageType1::Pointer bpinput = ComplexImageType1::New();
+		ComplexImageType::Pointer finput;
+		ComplexImageType::Pointer bpinput;
+
 
 		m_FFTFilter->SetInput(input);
 		m_FFTFilter->Update();
@@ -218,17 +239,13 @@ namespace itk
 
 		//Matlab style initalization, because these images accumulate over each loop
 		//Therefore, they initially all zeros
-		m_SSFilter->SetScale(0.0);
-		m_SSFilter->SetShift(0.0);
+		typename TInputImage::RegionType inputRegion = input->GetLargestPossibleRegion();
+		totalAmplitude->CopyInformation(input);		totalAmplitude->SetRegions(inputRegion);		totalAmplitude->Allocate();
+		totalAmplitude->FillBuffer(0);
 
-		m_SSFilter->Update();
-		totalAmplitude = m_SSFilter->GetOutput();
-		totalAmplitude->DisconnectPipeline();
-
-		m_SSFilter->Update();
-		totalEnergy = m_SSFilter->GetOutput();
-		totalEnergy->DisconnectPipeline();
-
+		totalEnergy->CopyInformation(input);
+		totalEnergy->SetRegions(inputRegion);		totalEnergy->Allocate();
+		totalEnergy->FillBuffer(0);
 
 		m_SSFilter->ReleaseDataFlagOn();
 		m_C2MFilter->ReleaseDataFlagOn();
@@ -247,17 +264,10 @@ namespace itk
 		{
 
 			//Reset the energy value
-			m_SSFilter->SetScale(0.0);
-			m_SSFilter->SetShift(0.0);
-			m_SSFilter->Update();
-			EnergyThisOrient = m_SSFilter->GetOutput();
-			EnergyThisOrient->DisconnectPipeline();
+			EnergyThisOrient->FillBuffer(0);
 
 			for( int w=0; w < m_Wavelengths.rows(); w++)
 			{
-
-				
-
 				//Multiply filters by the input image in fourier domain
 				m_C2MFilter->SetInput(finput);
 				m_C2AFilter->SetInput(finput);
@@ -274,7 +284,7 @@ namespace itk
 				m_MP2CFilter->SetInput1(m_MultiplyImageFilter->GetOutput());
 				m_MP2CFilter->SetInput2(m_C2AFilter->GetOutput());
 				m_MP2CFilter->Update();
-ComplexImageType1::Pointer  comp = m_MP2CFilter->GetOutput();
+				ComplexImageType::Pointer  comp = m_MP2CFilter->GetOutput();
 				m_IFFTFilter->SetInput(m_MP2CFilter->GetOutput());
 				m_IFFTFilter->Update();
 				bpinput=m_IFFTFilter->GetOutput();
@@ -290,12 +300,15 @@ ComplexImageType1::Pointer  comp = m_MP2CFilter->GetOutput();
 				m_AddImageFilter->Update();
 				totalAmplitude = m_AddImageFilter->GetOutput();
 				totalAmplitude->DisconnectPipeline();
+				typename FloatImageType::RegionType region = totalEnergy->GetLargestPossibleRegion();
 
+				FloatImageIteratorType energyIterator(totalEnergy, region);
+				ComplexImageIteratorType bpInputIterator(bpinput, bpinput->GetLargestPossibleRegion());
 				
 				//Use appropraite equation depending on polarity
 				if(m_Polarity==0)
 				{
-					m_AbsImageFilter->SetInput(m_C2RFilter->GetOutput());
+					/*m_AbsImageFilter->SetInput(m_C2RFilter->GetOutput());
 					m_AbsImageFilter2->SetInput(m_C2IFilter->GetOutput());
 
 					m_NegateFilter->SetInput(m_AbsImageFilter2->GetOutput());
@@ -308,12 +321,22 @@ ComplexImageType1::Pointer  comp = m_MP2CFilter->GetOutput();
 					
 					m_AddImageFilter2->Update();
 					EnergyThisOrient = m_AddImageFilter2->GetOutput();
-					EnergyThisOrient->DisconnectPipeline();
+					EnergyThisOrient->DisconnectPipeline();*/
+
+					while (!bpInputIterator.IsAtEnd())
+					{
+						float absReal = fabs(bpInputIterator.Value().real());
+						float absImag = fabs(bpInputIterator.Value().imag());
+						float energy = absReal - absImag;
+						energyIterator.Value() += energy - m_T;
+						++bpInputIterator;
+						++energyIterator;
+					}
 				}
 				else if(m_Polarity==1)
 				{
 					
-					m_AbsImageFilter->SetInput(m_C2IFilter->GetOutput());
+/*					m_AbsImageFilter->SetInput(m_C2IFilter->GetOutput());
 					m_NegateFilter->SetInput(m_AbsImageFilter->GetOutput());
 
 					m_AddImageFilter->SetInput1(m_C2RFilter->GetOutput());
@@ -324,39 +347,56 @@ ComplexImageType1::Pointer  comp = m_MP2CFilter->GetOutput();
 
 					m_AddImageFilter2->Update();
 					EnergyThisOrient = m_AddImageFilter2->GetOutput();
-					EnergyThisOrient->DisconnectPipeline();
-					
+					EnergyThisOrient->DisconnectPipeline();*/
+	
+					while (!bpInputIterator.IsAtEnd())
+					{
+						float real = bpInputIterator.Value().real();
+						float absImag = fabs(bpInputIterator.Value().imag());
+						float energy = real - absImag;
+						energyIterator.Value() += energy - m_T;
+						++bpInputIterator;
+						++energyIterator;
+					}				
 				}
 				else if(m_Polarity==-1)
 				{
-					m_AbsImageFilter->SetInput(m_C2IFilter->GetOutput());
-					m_NegateFilter->SetInput(m_C2RFilter->GetOutput());
-					m_NegateFilter2->SetInput(m_AbsImageFilter->GetOutput());
+					//m_AbsImageFilter->SetInput(m_C2IFilter->GetOutput());
+					//m_NegateFilter->SetInput(m_C2RFilter->GetOutput());
+					//m_NegateFilter2->SetInput(m_AbsImageFilter->GetOutput());
 
-					m_AddImageFilter->SetInput1(m_NegateFilter->GetOutput());
-					m_AddImageFilter->SetInput2(m_NegateFilter2->GetOutput());
+					//m_AddImageFilter->SetInput1(m_NegateFilter->GetOutput());
+					//m_AddImageFilter->SetInput2(m_NegateFilter2->GetOutput());
 
-					m_AddImageFilter2->SetInput1(m_AddImageFilter->GetOutput());
-					m_AddImageFilter2->SetInput2(EnergyThisOrient);
+					//m_AddImageFilter2->SetInput1(m_AddImageFilter->GetOutput());
+					//m_AddImageFilter2->SetInput2(EnergyThisOrient);
 
-					m_AddImageFilter2->Update();
-					EnergyThisOrient = m_AddImageFilter2->GetOutput();
-					EnergyThisOrient->DisconnectPipeline();
+					//m_AddImageFilter2->Update();
+					//EnergyThisOrient = m_AddImageFilter2->GetOutput();
+					//EnergyThisOrient->DisconnectPipeline();
+					while (!bpInputIterator.IsAtEnd())
+					{
+						float real = bpInputIterator.Value().real();
+						float absImag = fabs(bpInputIterator.Value().imag());
+						float energy = -real - absImag;
+						++bpInputIterator;
+						++energyIterator;
+					}				
 				}
 			}
 
-			
-			//Subtract the values below the noise threshold
-			m_SSFilter->SetInput(EnergyThisOrient);
-			m_SSFilter->SetScale(1.0);
-			m_SSFilter->SetShift(-m_T);
 
-			m_AddImageFilter->SetInput1(m_SSFilter->GetOutput());
-			m_AddImageFilter->SetInput2(totalEnergy);
-			m_AddImageFilter->Update();
-			
-			totalEnergy = m_AddImageFilter->GetOutput();
-			totalEnergy->DisconnectPipeline();
+			////Subtract the values below the noise threshold
+			//m_SSFilter->SetInput(EnergyThisOrient);
+			//m_SSFilter->SetScale(1.0);
+			//m_SSFilter->SetShift(-m_T);
+
+			//m_AddImageFilter->SetInput1(m_SSFilter->GetOutput());
+			//m_AddImageFilter->SetInput2(totalEnergy);
+			//m_AddImageFilter->Update();
+			//
+			//totalEnergy = m_AddImageFilter->GetOutput();
+			//totalEnergy->DisconnectPipeline();
 		}
 
 		
