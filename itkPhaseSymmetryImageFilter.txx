@@ -240,12 +240,21 @@ namespace itk
 		//Matlab style initalization, because these images accumulate over each loop
 		//Therefore, they initially all zeros
 		typename TInputImage::RegionType inputRegion = input->GetLargestPossibleRegion();
-		totalAmplitude->CopyInformation(input);		totalAmplitude->SetRegions(inputRegion);		totalAmplitude->Allocate();
+		totalAmplitude->CopyInformation(input);
+		totalAmplitude->SetRegions(inputRegion);
+		totalAmplitude->Allocate();
 		totalAmplitude->FillBuffer(0);
 
 		totalEnergy->CopyInformation(input);
-		totalEnergy->SetRegions(inputRegion);		totalEnergy->Allocate();
+		totalEnergy->SetRegions(inputRegion);
+		totalEnergy->Allocate();
 		totalEnergy->FillBuffer(0);
+		
+		ComplexImageType::Pointer multiplied = ComplexImageType::New();
+		multiplied->CopyInformation(finput);
+		multiplied->SetRegions(inputRegion);
+		multiplied->Allocate();
+		multiplied->FillBuffer(0);
 
 		m_SSFilter->ReleaseDataFlagOn();
 		m_C2MFilter->ReleaseDataFlagOn();
@@ -269,23 +278,25 @@ namespace itk
 			for( int w=0; w < m_Wavelengths.rows(); w++)
 			{
 				//Multiply filters by the input image in fourier domain
-				m_C2MFilter->SetInput(finput);
-				m_C2AFilter->SetInput(finput);
-				m_SSFilter->SetScale(1/pxlCount);
-				m_SSFilter->SetShift(0.0);
-				//Normalize the magnitude by the number of pixels
-				m_SSFilter->SetInput(m_C2MFilter->GetOutput());
-		
-				m_MultiplyImageFilter->SetInput1( m_SSFilter->GetOutput() );
-				m_MultiplyImageFilter->SetInput2( m_FilterBank[w][o] );
-				
-				m_MultiplyImageFilter->Update();////////////////
-				
-				m_MP2CFilter->SetInput1(m_MultiplyImageFilter->GetOutput());
-				m_MP2CFilter->SetInput2(m_C2AFilter->GetOutput());
-				m_MP2CFilter->Update();
-				ComplexImageType::Pointer  comp = m_MP2CFilter->GetOutput();
-				m_IFFTFilter->SetInput(m_MP2CFilter->GetOutput());
+				ComplexImageIteratorType inputIterator(finput, inputRegion);
+				FloatImageIteratorType filterBankIterator(m_FilterBank[w][o], inputRegion);
+				ComplexImageIteratorType multipliedImageIterator(multiplied, inputRegion);
+				while(!inputIterator.IsAtEnd())
+				{
+					float real = inputIterator.Value().real();
+					float imag = inputIterator.Value().imag();
+					float magnitude = sqrt(real * real + imag * imag) / pxlCount;
+					float angle = atan2(imag, real);
+					float multipliedMagnitude = magnitude * filterBankIterator.Value();
+					real = multipliedMagnitude * cos(angle);
+					imag = multipliedMagnitude * sin(angle);
+					multipliedImageIterator.Value() = std::complex<float>(real, imag);
+					++inputIterator;
+					++filterBankIterator;
+					++multipliedImageIterator;
+				}
+
+				m_IFFTFilter->SetInput(multiplied);
 				m_IFFTFilter->Update();
 				bpinput=m_IFFTFilter->GetOutput();
 				bpinput->DisconnectPipeline();
