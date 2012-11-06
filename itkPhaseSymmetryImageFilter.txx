@@ -308,21 +308,6 @@ namespace itk
 				//Use appropraite equation depending on polarity
 				if(m_Polarity==0)
 				{
-					/*m_AbsImageFilter->SetInput(m_C2RFilter->GetOutput());
-					m_AbsImageFilter2->SetInput(m_C2IFilter->GetOutput());
-
-					m_NegateFilter->SetInput(m_AbsImageFilter2->GetOutput());
-
-					m_AddImageFilter->SetInput1(m_AbsImageFilter->GetOutput());
-					m_AddImageFilter->SetInput2(m_NegateFilter->GetOutput());
-
-					m_AddImageFilter2->SetInput1(m_AddImageFilter->GetOutput());
-					m_AddImageFilter2->SetInput2(EnergyThisOrient);
-					
-					m_AddImageFilter2->Update();
-					EnergyThisOrient = m_AddImageFilter2->GetOutput();
-					EnergyThisOrient->DisconnectPipeline();*/
-
 					while (!bpInputIterator.IsAtEnd())
 					{
 						float absReal = fabs(bpInputIterator.Value().real());
@@ -335,20 +320,6 @@ namespace itk
 				}
 				else if(m_Polarity==1)
 				{
-					
-/*					m_AbsImageFilter->SetInput(m_C2IFilter->GetOutput());
-					m_NegateFilter->SetInput(m_AbsImageFilter->GetOutput());
-
-					m_AddImageFilter->SetInput1(m_C2RFilter->GetOutput());
-					m_AddImageFilter->SetInput2(m_NegateFilter->GetOutput());
-
-					m_AddImageFilter2->SetInput1(m_AddImageFilter->GetOutput());
-					m_AddImageFilter2->SetInput2(EnergyThisOrient);
-
-					m_AddImageFilter2->Update();
-					EnergyThisOrient = m_AddImageFilter2->GetOutput();
-					EnergyThisOrient->DisconnectPipeline();*/
-	
 					while (!bpInputIterator.IsAtEnd())
 					{
 						float real = bpInputIterator.Value().real();
@@ -361,19 +332,6 @@ namespace itk
 				}
 				else if(m_Polarity==-1)
 				{
-					//m_AbsImageFilter->SetInput(m_C2IFilter->GetOutput());
-					//m_NegateFilter->SetInput(m_C2RFilter->GetOutput());
-					//m_NegateFilter2->SetInput(m_AbsImageFilter->GetOutput());
-
-					//m_AddImageFilter->SetInput1(m_NegateFilter->GetOutput());
-					//m_AddImageFilter->SetInput2(m_NegateFilter2->GetOutput());
-
-					//m_AddImageFilter2->SetInput1(m_AddImageFilter->GetOutput());
-					//m_AddImageFilter2->SetInput2(EnergyThisOrient);
-
-					//m_AddImageFilter2->Update();
-					//EnergyThisOrient = m_AddImageFilter2->GetOutput();
-					//EnergyThisOrient->DisconnectPipeline();
 					while (!bpInputIterator.IsAtEnd())
 					{
 						float real = bpInputIterator.Value().real();
