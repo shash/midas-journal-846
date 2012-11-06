@@ -217,7 +217,6 @@ namespace itk
 		ComplexImageType::Pointer finput;
 		ComplexImageType::Pointer bpinput;
 
-
 		m_FFTFilter->SetInput(input);
 		m_FFTFilter->Update();
 		finput = m_FFTFilter->GetOutput();
@@ -233,13 +232,18 @@ namespace itk
 		}
 
 
-		typename FloatImageType::Pointer EnergyThisOrient = FloatImageType::New();
 		typename FloatImageType::Pointer totalAmplitude = FloatImageType::New();
 		typename FloatImageType::Pointer totalEnergy = FloatImageType::New();
 
 		//Matlab style initalization, because these images accumulate over each loop
 		//Therefore, they initially all zeros
 		typename TInputImage::RegionType inputRegion = input->GetLargestPossibleRegion();
+
+		output->CopyInformation(input);
+		output->SetRegions(inputRegion);
+		output->Allocate();
+		output->FillBuffer(0);
+
 		totalAmplitude->CopyInformation(input);
 		totalAmplitude->SetRegions(inputRegion);
 		totalAmplitude->Allocate();
@@ -272,9 +276,6 @@ namespace itk
 		for( int o=0; o < m_Orientations.rows(); o++)
 		{
 
-			//Reset the energy value
-			EnergyThisOrient->FillBuffer(0);
-
 			for( int w=0; w < m_Wavelengths.rows(); w++)
 			{
 				//Multiply filters by the input image in fourier domain
@@ -283,14 +284,22 @@ namespace itk
 				ComplexImageIteratorType multipliedImageIterator(multiplied, inputRegion);
 				while(!inputIterator.IsAtEnd())
 				{
-					float real = inputIterator.Value().real();
-					float imag = inputIterator.Value().imag();
-					float magnitude = sqrt(real * real + imag * imag) / pxlCount;
-					float angle = atan2(imag, real);
-					float multipliedMagnitude = magnitude * filterBankIterator.Value();
-					real = multipliedMagnitude * cos(angle);
-					imag = multipliedMagnitude * sin(angle);
-					multipliedImageIterator.Value() = std::complex<float>(real, imag);
+					std::complex<float> filtered = inputIterator.Value() * filterBankIterator.Value();
+					filtered /= pxlCount;
+					//float real = inputIterator.Value().real();
+					//float imag = inputIterator.Value().imag();
+					//float magnitude = sqrt(real * real + imag * imag) / pxlCount;
+					//float phase = atan2(imag, real);
+					//float multipliedMagnitude = magnitude * filterBankIterator.Value();
+					//real = multipliedMagnitude * cos(phase);
+					//imag = multipliedMagnitude * sin(phase);
+					//std::complex<float> filtered2(real, imag);
+					//if (filtered != filtered2)
+					//{
+					//	std::complex<float> diff = filtered - filtered2;
+					//	std::cout << diff.real() << " " << diff.imag() << std::endl;
+					//}
+					multipliedImageIterator.Value() = filtered;
 					++inputIterator;
 					++filterBankIterator;
 					++multipliedImageIterator;
@@ -301,20 +310,23 @@ namespace itk
 				bpinput=m_IFFTFilter->GetOutput();
 				bpinput->DisconnectPipeline();
 				//Get mag, real and imag of the band passed images
-				m_C2MFilter->SetInput(bpinput);
-				m_C2RFilter->SetInput(bpinput);
-				m_C2IFilter->SetInput(bpinput);
 
+				FloatImageIteratorType amplitudeImageIterator(totalAmplitude, inputRegion);
+				ComplexImageIteratorType bpInputIterator(bpinput, bpinput->GetLargestPossibleRegion());
+				while(!bpInputIterator.IsAtEnd())
+				{
+					float real = bpInputIterator.Value().real();
+					float imag = bpInputIterator.Value().imag();
+					amplitudeImageIterator.Value() += sqrt(real * real + imag * imag);
+					++amplitudeImageIterator;
+					++bpInputIterator;
+				}
 	
-				m_AddImageFilter->SetInput1(m_C2MFilter->GetOutput());
-				m_AddImageFilter->SetInput2(totalAmplitude);
-				m_AddImageFilter->Update();
-				totalAmplitude = m_AddImageFilter->GetOutput();
-				totalAmplitude->DisconnectPipeline();
+				bpInputIterator.GoToBegin();
+
 				typename FloatImageType::RegionType region = totalEnergy->GetLargestPossibleRegion();
 
 				FloatImageIteratorType energyIterator(totalEnergy, region);
-				ComplexImageIteratorType bpInputIterator(bpinput, bpinput->GetLargestPossibleRegion());
 				
 				//Use appropraite equation depending on polarity
 				if(m_Polarity==0)
@@ -350,43 +362,23 @@ namespace itk
 						float energy = -real - absImag;
 						++bpInputIterator;
 						++energyIterator;
-					}				
+					}
 				}
 			}
-
-
-			////Subtract the values below the noise threshold
-			//m_SSFilter->SetInput(EnergyThisOrient);
-			//m_SSFilter->SetScale(1.0);
-			//m_SSFilter->SetShift(-m_T);
-
-			//m_AddImageFilter->SetInput1(m_SSFilter->GetOutput());
-			//m_AddImageFilter->SetInput2(totalEnergy);
-			//m_AddImageFilter->Update();
-			//
-			//totalEnergy = m_AddImageFilter->GetOutput();
-			//totalEnergy->DisconnectPipeline();
 		}
 
-		
-		//Set negative values to zero
-		m_SSFilter->SetScale(0.0);
-		m_SSFilter->SetShift(0.0);
-		m_MaxImageFilter->SetInput1(totalEnergy);
-		m_MaxImageFilter->SetInput2(m_SSFilter->GetOutput());
+		FloatImageIteratorType outputIterator(output, inputRegion);
+		FloatImageIteratorType energyIterator(totalEnergy, inputRegion);
+		FloatImageIteratorType amplitudeIterator(totalAmplitude, inputRegion);
 
-		//Divide total energy by total amplitude over all scles and orientations
-		m_DivideImageFilter->SetInput1(m_MaxImageFilter->GetOutput());
-		m_DivideImageFilter->SetInput2(totalAmplitude);
-
-		m_DivideImageFilter->GraftOutput( this->GetOutput() );
-		m_DivideImageFilter->Update();
-		m_PhaseSymmetry = m_DivideImageFilter->GetOutput();
-		this->GraftOutput( m_PhaseSymmetry );
-
-
+		while (!outputIterator.IsAtEnd())
+		{
+			outputIterator.Value() = std::max(0.f, energyIterator.Value()) / amplitudeIterator.Value();
+			++outputIterator;
+			++energyIterator;
+			++amplitudeIterator;
+		}
 		itkDebugMacro("GenerateOutputInformation End");
-
 	}
 
 
